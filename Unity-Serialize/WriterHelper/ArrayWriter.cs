@@ -12,6 +12,11 @@ namespace DreamSerialize.WriterHelper
 
         public override BitStream Serialize(BitStream stream, T[] value)
         {
+            if (value == null)
+            {
+                BinaryWriter.Write(stream, 0);
+                return stream;
+            }
             int length = value.Length;
             BinaryWriter.Write(stream,length);
             for (int i = 0; i < length; i++)

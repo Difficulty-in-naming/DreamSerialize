@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq.Expressions;
 using System.Reflection;
 using DreamSerialize.New;
 using DreamSerialize.Utility;
@@ -7,8 +8,6 @@ using Theraot.Core.System.Linq.Expressions;
 using Theraot.Core.Theraot.Core;
 using Expression = Theraot.Core.System.Linq.Expressions.Expression;
 
-//using BlockExpression = DreamSerialize.Utility.BlockExpression;
-//using Expression = DreamSerialize.Utility.Expression;
 
 namespace DreamSerialize.WriterHelper
 {
@@ -84,16 +83,14 @@ namespace DreamSerialize.WriterHelper
 
     public class ClassWriter<T> : SupportSerializable<T>, ClassWriteInterface where T : new()
     {
-        internal FieldData[] SerializerList;
-        internal FieldData[] DeserializeArray;
+        internal Func<BitStream, T, BitStream> SerializerList;
+        internal Action<BitStream, int,T> DeserializeArray;
 
         internal class FieldData
         {
             public string Name;
             public int Index;
             public Type Type;
-            public Func<BitStream, T,BitStream> Serialize;
-            public Action<BitStream, T> Deserialize;
         }
         public int Length { get; set; }
         private List<FieldData> datas;
@@ -105,51 +102,73 @@ namespace DreamSerialize.WriterHelper
             var prop = t.GetProperties();
             datas = SortFields(fields, prop);
             Length = datas.Count;
-            SerializerList = new FieldData[Length];
             var writeHead = typeof(WriteForInt32).GetMethod("Serialize",new[] {typeof(BitStream), typeof(int)});
             if (WriteForInt32.Default == null)
                 new WriteForInt32();
+
             //序列化
-            for (int i = 0; i < Length; i++)
             {
-                var data = datas[i];
-                var type = data.Type;
-                var serType = typeof(SupportSerializable<>).MakeGenericType(type);
-                var serDefault = serType.GetField("Default");
-                var getSer = Check(serDefault, type);
-                var method = serType.GetMethod("Serialize", new[] { typeof(BitStream), type });
+                List<Expression> expression = new List<Expression>();
                 var arg0 = Expression.Parameter(typeof(BitStream), "data");
                 var arg1 = Expression.Parameter(t, "T");
-                var arg2 = Expression.Constant(data.Index,typeof(int));
-                var fp = Expression.PropertyOrField(arg1, data.Name);
-                var pGetter = Expression.Constant(getSer, getSer.GetType());
-                //var pGetter = Expression.Field(null, serDefault);
-                var iGetter = Expression.Constant(WriteForInt32.Default, typeof(WriteForInt32));
-                var call = Expression.Call(pGetter, method, arg0, fp);
-                var writeIndex = Expression.Call(iGetter,writeHead, arg0, arg2);
-                Func<BitStream, T,BitStream> ser = null;
-                var classWriterInterface = getSer as ClassWriteInterface;
-                if (classWriterInterface != null)
+                Expression finalCall = null;
+                for (int i = 0; i < Length; i++)
                 {
-                    if (classWriterInterface.Length == 0)
+                    var data = datas[i];
+                    var type = data.Type;
+                    var serType = typeof(SupportSerializable<>).MakeGenericType(type);
+                    var serDefault = serType.GetField("Default");
+                    var getSer = Check(serDefault, type);
+                    var method = serType.GetMethod("Serialize", new[] { typeof(BitStream), type });
+                    var arg2 = Expression.Constant(data.Index, typeof(int));
+                    var fp = Expression.PropertyOrField(arg1, data.Name);
+                    var pGetter = Expression.Constant(getSer, getSer.GetType());
+                    var iGetter = Expression.Constant(WriteForInt32.Default, typeof(WriteForInt32));
+                    var call = Expression.Call(pGetter, method, arg0, fp);
+                    var writeIndex = Expression.Call(iGetter, writeHead, arg0, arg2);
+                    var classWriterInterface = getSer as ClassWriteInterface;
+                    if (classWriterInterface != null)
                     {
-                        ser = Expression.Lambda<Func<BitStream, T, BitStream>>(arg0, arg0, arg1).Compile();
+                        if (classWriterInterface.Length != 0)
+                        {
+                            var isNull = Expression.NotEqual(fp, Expression.Constant(null, typeof(object)));
+                            BlockExpression haveValue = Expression.Block(writeIndex, call);
+                            var notValue = Expression.Call(iGetter, writeHead, arg0, Expression.Constant(0, typeof(int)));
+                            finalCall = Expression.Condition(isNull, haveValue, notValue);
+                        }
                     }
                     else
                     {
-                        var check = Expression.NotEqual(fp, Expression.Constant(null, typeof(object)));
-                        BlockExpression block = Expression.Block(writeIndex, call);
-                        var refCall = Expression.Condition(check, block, arg0);
-                        ser = Expression.Lambda<Func<BitStream, T, BitStream>>(refCall, arg0, arg1).Compile();
+                        finalCall = Expression.Block(writeIndex, call);
                     }
+                    expression.Add(finalCall);
                 }
-                else
+                var block = Expression.Block(expression);
+                SerializerList = Expression.Lambda<Func<BitStream, T, BitStream>>(block, arg0, arg1).Compile();
+            }
+
+            //反序列化
+            {
+                var arg0 = Expression.Parameter(typeof(BitStream), "data");
+                var arg1 = Expression.Parameter(typeof(int), "index");
+                var arg2 = Expression.Parameter(t, "T");
+                List<SwitchCase> sw = new List<SwitchCase>();
+                for (int node = 0; node < Length; node++)
                 {
-                    var block = Expression.Block(writeIndex,call);
-                    ser = Expression.Lambda<Func<BitStream, T,BitStream>>(block, arg0, arg1).Compile();
+                    var data = datas[node];
+                    var type = data.Type;
+
+                    var fp = Expression.PropertyOrField(arg2, data.Name);
+                    var serType = typeof(SupportSerializable<>).MakeGenericType(type);
+                    var serDefault = serType.GetField("Default");
+                    Check(serDefault, type);
+                    var method = serType.GetMethod("Deserialize", new[] { typeof(BitStream) });
+                    var pGetter = Expression.Field(null, serDefault);
+                    var assign = Expression.Assign(fp, Expression.Call(pGetter, method, arg0));
+                    sw.Add(Expression.SwitchCase(Expression.Block(assign,Expression.Constant(null)), Expression.Constant(data.Index,typeof(int))));
                 }
-                data.Serialize = ser;
-                SerializerList[i] = data;
+                var s = Expression.Switch(arg1, Expression.Constant(null), sw.ToArray());
+                DeserializeArray = Expression.Lambda<Action<BitStream,int, T>>(s, arg0, arg1,arg2).Compile();
             }
         }
 
@@ -162,8 +181,8 @@ namespace DreamSerialize.WriterHelper
             for (int index = 0; index < fields.Length; index++)
             {
                 fieldInfo = fields[index];
-                var attr = fieldInfo.GetAttributes<Index>(false);
-                if (attr == null || attr.Length == 0)
+                var attr = (Index[])fieldInfo.GetCustomAttributes(typeof(Index),false);
+                if (attr.Length == 0)
                     continue;
                 indexAttr = attr[0];
                 fieldData.Add(new FieldData { Name = fieldInfo.Name, Index = indexAttr.index, Type = fieldInfo.FieldType });
@@ -171,8 +190,8 @@ namespace DreamSerialize.WriterHelper
             for (int index = 0; index < props.Length; index++)
             {
                 propInfo = props[index];
-                var attr = propInfo.GetAttributes<Index>(false);
-                if (attr == null || attr.Length == 0)
+                var attr = (Index[])propInfo.GetCustomAttributes(typeof(Index), false);
+                if (attr.Length == 0)
                     continue;
                 indexAttr = attr[0];
                 fieldData.Add(new FieldData { Name = propInfo.Name, Index = indexAttr.index, Type = propInfo.PropertyType });
@@ -194,59 +213,16 @@ namespace DreamSerialize.WriterHelper
 
         public override BitStream Serialize(BitStream stream, T value)
         {
-            for (int i = 0; i < Length; i++)
-            {
-                SerializerList[i].Serialize(stream, value);
-            }
-            WriteForInt32.Default.Serialize(stream,-1);
-            return stream;
+            return SerializerList(stream, value);
         }
 
         public override T Deserialize(BitStream stream)
         {
             var obj = new T();
-            int maxLength = stream.Bytes.Length;
-            int i = 0;
-            if (DeserializeArray == null)
+            int index = 0;
+            while ((index = BinaryReader.ReadInt32(stream)) != 0)
             {
-                DeserializeArray = new FieldData[Length];
-                //反序列化
-                while (stream.Offset < maxLength)
-                {
-                    int index = BinaryReader.ReadInt32(stream);
-                    if (index == -1)
-                        return obj;
-                    for (int node = 0; node < Length; node++)
-                    {
-                        var data = datas[node];
-                        if (data.Index == index)
-                        {
-                            var type = data.Type;
-                            BinaryExpression assign;
-                            Action<BitStream, T> ser;
-                            var arg0 = Expression.Parameter(typeof(BitStream), "data");
-                            var arg1 = Expression.Parameter(t, "T");
-                            var fp = Expression.PropertyOrField(arg1, data.Name);
-                            var serType = typeof(SupportSerializable<>).MakeGenericType(type);
-                            var serDefault = serType.GetField("Default");
-                            Check(serDefault, type);
-                            var method = serType.GetMethod("Deserialize", new[] { typeof(BitStream) });
-                            var pGetter = Expression.Field(null, serDefault);
-                            assign = Expression.Assign(fp, Expression.Call(pGetter, method, arg0));
-                            ser = Expression.Lambda<Action<BitStream, T>>(assign, arg0, arg1).Compile();
-                            ser(stream, obj);
-                            data.Deserialize = ser;
-                            DeserializeArray[i++] = data;
-                            break;
-                        }
-                    }
-                }
-                return obj;
-            }
-            while (i < Length)
-            {
-                BinaryReader.ReadInt32(stream);
-                DeserializeArray[i++].Deserialize(stream, obj);
+                DeserializeArray(stream, index, obj);
             }
             return obj;
         }

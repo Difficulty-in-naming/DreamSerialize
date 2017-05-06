@@ -16,6 +16,11 @@ namespace DreamSerialize.WriterHelper
 
         public override BitStream Serialize(BitStream stream, Dictionary<TKey, TValue> value)
         {
+            if (value == null)
+            {
+                BinaryWriter.Write(stream, 0);
+                return stream;
+            }
             BinaryWriter.Write(stream, value.Count);
             foreach (var node in value)
             {
@@ -53,6 +58,11 @@ namespace DreamSerialize.WriterHelper
 
         public override BitStream Serialize(BitStream stream, List<TValue> value)
         {
+            if (value == null)
+            {
+                BinaryWriter.Write(stream, 0);
+                return stream;
+            }
             int count = value.Count;
             BinaryWriter.Write(stream, count);
             for (int index = 0; index < count; index++)
