@@ -280,12 +280,23 @@ namespace DreamSerialize.New
 
         public static unsafe int ReadInt32(BitStream stream)
         {
-            fixed (byte* ptr = stream.Bytes)
+            int result = 0;
+            int offset = 0;
+            int index = 0;
+            for (; offset < 32; offset += 8)
             {
-                int a =  *(int*)(ptr + stream.Offset);
-                stream.Offset += 4;
-                return a;
+                int b = stream.Bytes[stream.Offset + index++];
+                if (b == -1)
+                {
+                    throw new Exception("Null");
+                }
+                result |= b << offset;
+                if ((b & 0x80) == 0)
+                {
+                    return (int)result;
+                }
             }
+            return 0;
         }
 
         public static uint ReadUInt32(BitStream stream)

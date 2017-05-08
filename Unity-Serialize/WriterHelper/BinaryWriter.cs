@@ -95,10 +95,10 @@ namespace DreamSerialize.WriterHelper
         public static void Write(ref byte[] bytes,ref int offset,int value)
         {
             var cc = new IntUnion {Value = value};
-            Write(ref bytes,ref offset, cc.byte0);
+/*            Write(ref bytes,ref offset, cc.byte0);
             Write(ref bytes,ref offset, cc.byte1);
             Write(ref bytes,ref offset, cc.byte2);
-            Write(ref bytes,ref offset, cc.byte3);
+            Write(ref bytes,ref offset, cc.byte3);*/
         }
 
         public static void Write(ref byte[] bytes,ref int offset, uint value)
@@ -348,13 +348,21 @@ namespace DreamSerialize.WriterHelper
             stream.Bytes[stream.Offset++] = value;
         }
 
-        public static void Write(BitStream stream, int value)
+        public static unsafe void Write(BitStream stream, int value)
         {
             var cc = new IntUnion { Value = value };
-            Write(stream, cc.byte0);
-            Write(stream, cc.byte1);
-            Write(stream, cc.byte2);
-            Write(stream, cc.byte3);
+            if (value <= 127)
+            {
+                Write(stream, cc.bytes[0]);
+                return;
+            }
+            int index = 0;
+            while (value > 127)
+            {
+                Write(stream,(byte)(cc.bytes[index++] | 0x80));
+                value >>= 8;
+            }
+            Write(stream, cc.bytes[index]);
         }
 
         public static void Write(BitStream stream, uint value)

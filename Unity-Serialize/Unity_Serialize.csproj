@@ -11,7 +11,7 @@
     <AssemblyName>DreamSerialize</AssemblyName>
     <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
-    <TargetFrameworkProfile>Unity Subset v3.5</TargetFrameworkProfile>
+    <TargetFrameworkProfile>Unity Full v3.5</TargetFrameworkProfile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <DebugSymbols>true</DebugSymbols>
@@ -25,32 +25,71 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <RunCodeAnalysis>false</RunCodeAnalysis>
     <PlatformTarget>AnyCPU</PlatformTarget>
-    <GenerateSerializationAssemblies>On</GenerateSerializationAssemblies>
+    <GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
+    <Optimize>false</Optimize>
     <OutputPath>bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <Prefer32Bit>false</Prefer32Bit>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <PlatformTarget>AnyCPU</PlatformTarget>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'UNITY_IOS|AnyCPU'">
-    <OutputPath>bin\UNITY_IOS\</OutputPath>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Unity|AnyCPU' ">
+    <OutputPath>..\..\..\..\Unity\SuperHero\Assets\New Folder\</OutputPath>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <DefineConstants>UNITY_IOS</DefineConstants>
+    <DefineConstants>Unity</DefineConstants>
     <Prefer32Bit>false</Prefer32Bit>
+    <WarningLevel>3</WarningLevel>
+    <Optimize>false</Optimize>
+    <GenerateSerializationAssemblies>Auto</GenerateSerializationAssemblies>
+    <DebugType>pdbonly</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+    <ErrorReport>prompt</ErrorReport>
   </PropertyGroup>
   <ItemGroup>
+    <Reference Include="ClassLibrary1">
+      <HintPath>..\ClassLibrary1\bin\Release\ClassLibrary1.dll</HintPath>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
-    <Reference Include="Theraot.Core">
-      <HintPath>..\Core\bin\Release\Theraot.Core.dll</HintPath>
+    <Reference Include="UnityEngine, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\..\..\..\..\Program Files\Unity\Editor\Data\Managed\UnityEngine.dll</HintPath>
+      <SpecificVersion>False</SpecificVersion>
+      <Private>False</Private>
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\..\..\..\..\users\administrator\desktop\csharp-eval-unity3d-master\gamedevware.dynamic.expressions.unity\assets\plugins\gamedevware.dynamic.expressions\AotCompilation.cs">
+      <Link>Reflection\AotCompilation.cs</Link>
+    </Compile>
+    <Compile Include="..\..\..\..\..\users\administrator\desktop\csharp-eval-unity3d-master\gamedevware.dynamic.expressions.unity\assets\plugins\gamedevware.dynamic.expressions\Constants.cs">
+      <Link>Reflection\Constants.cs</Link>
+    </Compile>
+    <Compile Include="..\..\..\..\..\users\administrator\desktop\csharp-eval-unity3d-master\gamedevware.dynamic.expressions.unity\assets\plugins\gamedevware.dynamic.expressions\Executor.cs">
+      <Link>Reflection\Executor.cs</Link>
+    </Compile>
+    <Compile Include="..\..\..\..\..\users\administrator\desktop\csharp-eval-unity3d-master\gamedevware.dynamic.expressions.unity\assets\plugins\gamedevware.dynamic.expressions\Executor.Intrinsics.cs">
+      <Link>Reflection\Executor.Intrinsics.cs</Link>
+    </Compile>
+    <Compile Include="..\..\..\..\..\users\administrator\desktop\csharp-eval-unity3d-master\gamedevware.dynamic.expressions.unity\assets\plugins\gamedevware.dynamic.expressions\Executor.MethodCall.cs">
+      <Link>Reflection\Executor.MethodCall.cs</Link>
+    </Compile>
+    <Compile Include="..\..\..\..\..\users\administrator\desktop\csharp-eval-unity3d-master\gamedevware.dynamic.expressions.unity\assets\plugins\gamedevware.dynamic.expressions\ExpressionExtentions.cs">
+      <Link>Reflection\ExpressionExtentions.cs</Link>
+    </Compile>
+    <Compile Include="..\..\..\..\..\users\administrator\desktop\csharp-eval-unity3d-master\gamedevware.dynamic.expressions.unity\assets\plugins\gamedevware.dynamic.expressions\ExpressionSubstitutor.cs">
+      <Link>Reflection\ExpressionSubstitutor.cs</Link>
+    </Compile>
+    <Compile Include="..\..\..\..\..\users\administrator\desktop\csharp-eval-unity3d-master\gamedevware.dynamic.expressions.unity\assets\plugins\gamedevware.dynamic.expressions\ExpressionVisitor.cs">
+      <Link>Reflection\ExpressionVisitor.cs</Link>
+    </Compile>
+    <Compile Include="..\..\..\..\..\users\administrator\desktop\csharp-eval-unity3d-master\gamedevware.dynamic.expressions.unity\assets\plugins\gamedevware.dynamic.expressions\MethodCallSignature.cs">
+      <Link>Reflection\MethodCallSignature.cs</Link>
+    </Compile>
     <Compile Include="New\BinaryReader.cs" />
     <Compile Include="New\BitStream.cs" />
     <Compile Include="New\Interface.cs" />
@@ -58,14 +97,25 @@
     <Compile Include="New\Attributes.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="New\Serializer.cs" />
-    <Compile Include="Utility\BlockExpression.cs" />
+    <Compile Include="UnityResources.cs">
+      <DependentUpon>UnityResources.tt</DependentUpon>
+      <AutoGen>True</AutoGen>
+      <DesignTime>True</DesignTime>
+    </Compile>
     <Compile Include="Utility\IType.cs" />
     <Compile Include="Utility\TypeUtility.cs" />
     <Compile Include="WriterHelper\ArrayWriter.cs" />
     <Compile Include="WriterHelper\BinaryWriter.cs" />
     <Compile Include="WriterHelper\DynamicWriter.cs" />
     <Compile Include="WriterHelper\GenericWriter.cs" />
+    <Compile Include="WriterHelper\SpecialWriter.cs" />
     <Compile Include="WriterHelper\ValueTypeWriter.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="UnityResources.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>UnityResources.cs</LastGenOutput>
+    </None>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

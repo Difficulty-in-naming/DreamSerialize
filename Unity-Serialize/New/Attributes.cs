@@ -2,11 +2,6 @@
 
 namespace DreamSerialize.New
 {
-    internal static class ReaderType
-    {
-        public const byte Dict = 0;
-        public const byte List = 1;
-    }
     [AttributeUsage(AttributeTargets.Class|AttributeTargets.Struct)]
     public class SerializerContract : Attribute
     {
@@ -15,10 +10,16 @@ namespace DreamSerialize.New
     public class Index : Attribute
     {
         public int index;
-
+        public bool SupportPrivate = false;
         public Index(int i)
         {
             index = i;
+        }
+
+        public Index(int i, bool supportPrivate)
+        {
+            index = i;
+            SupportPrivate = supportPrivate;
         }
     }
 }
