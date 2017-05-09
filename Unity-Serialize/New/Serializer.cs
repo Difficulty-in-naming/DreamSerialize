@@ -10,10 +10,7 @@ namespace DreamSerialize.New
         {
             var bit = new BitStream(new byte[64], 0);
             DynamicWriter<T>.Write(bit,obj);
-            //Array.Resize(ref bit.Bytes,bit.Offset);
-            var newArray = new byte[bit.Offset + 1];
-            Array.Copy(bit.Bytes, 0, newArray, 1, 50000);
-            bit.Bytes = newArray;
+            Array.Resize(ref bit.Bytes,bit.Offset);
             return bit.Bytes;
         }
 

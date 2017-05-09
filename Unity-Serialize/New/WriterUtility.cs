@@ -1,10 +1,16 @@
 ﻿using System.Runtime.InteropServices;
 
-[StructLayout(LayoutKind.Explicit,Size = 4)]
-public unsafe struct IntUnion
+[StructLayout(LayoutKind.Explicit)]
+public struct IntUnion
 {
     [FieldOffset(0)]
-    public fixed byte bytes[4];
+    public byte byte0;
+    [FieldOffset(1)]
+    public byte byte1;
+    [FieldOffset(2)]
+    public byte byte2;
+    [FieldOffset(3)]
+    public byte byte3;
     [FieldOffset(0)]
     public int Value;
 }

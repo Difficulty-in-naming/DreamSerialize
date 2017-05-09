@@ -8,16 +8,28 @@ namespace DreamSerialize.WriterHelper
     {
         public override BitStream Serialize(BitStream stream, byte value)
         {
-            BinaryWriter.Write(stream, value);
+            BinaryWriter.Write(stream, (uint)value);
             return stream;
         }
 
         public override byte Deserialize(BitStream stream)
         {
-            return BinaryReader.ReadByte(stream);
+            return (byte)BinaryReader.ReadUInt32(stream);
         }
     }
+    public class WriteForSByte : SupportSerializable<sbyte>
+    {
+        public override BitStream Serialize(BitStream stream, sbyte value)
+        {
+            BinaryWriter.Write(stream, value);
+            return stream;
+        }
 
+        public override sbyte Deserialize(BitStream stream)
+        {
+            return (sbyte)BinaryReader.ReadUInt32(stream);
+        }
+    }
     public class WriteForSingle : SupportSerializable<float>
     {
         public override BitStream Serialize(BitStream stream, float value)
@@ -120,13 +132,13 @@ namespace DreamSerialize.WriterHelper
     {
         public override BitStream Serialize(BitStream stream, short value)
         {
-            BinaryWriter.Write(stream, value);
+            BinaryWriter.Write(stream, (int)value);
             return stream;
         }
 
         public override short Deserialize(BitStream stream)
         {
-            return BinaryReader.ReadInt16(stream);
+            return (short)BinaryReader.ReadInt32(stream);
         }
     }
 
@@ -134,13 +146,13 @@ namespace DreamSerialize.WriterHelper
     {
         public override BitStream Serialize(BitStream stream, ushort value)
         {
-            BinaryWriter.Write(stream, value);
+            BinaryWriter.Write(stream, (uint)value);
             return stream;
         }
 
         public override ushort Deserialize(BitStream stream)
         {
-            return BinaryReader.ReadUInt16(stream);
+            return (ushort)BinaryReader.ReadUInt32(stream);
         }
     }
 

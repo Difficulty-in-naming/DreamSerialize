@@ -91,7 +91,7 @@ namespace DreamSerialize.WriterHelper
             BinaryWriter.Write(stream, length);
             for (int i = 0; i < length; i++)
             {
-                BinaryWriter.Write(stream, value[i]);
+                BinaryWriter.Write(stream, (uint)value[i]);
             }
             return stream;
         }
@@ -102,7 +102,7 @@ namespace DreamSerialize.WriterHelper
             ushort[] array = new ushort[length];
             for (int i = 0; i < length; i++)
             {
-                array[i] = BinaryReader.ReadUInt16(stream);
+                array[i] = (ushort)BinaryReader.ReadUInt32(stream);
             }
             return array;
         }
@@ -116,7 +116,7 @@ namespace DreamSerialize.WriterHelper
             BinaryWriter.Write(stream, length);
             for (int i = 0; i < length; i++)
             {
-                BinaryWriter.Write(stream, value[i]);
+                BinaryWriter.Write(stream, (int)value[i]);
             }
             return stream;
         }
@@ -127,7 +127,7 @@ namespace DreamSerialize.WriterHelper
             short[] array = new short[length];
             for (int i = 0; i < length; i++)
             {
-                array[i] = BinaryReader.ReadInt16(stream);
+                array[i] = (short)BinaryReader.ReadInt32(stream);
             }
             return array;
         }

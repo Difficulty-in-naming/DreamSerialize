@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using DreamSerialize.New;
@@ -139,13 +140,18 @@ namespace DreamSerialize.WriterHelper
         int Length { get; set; }
     }
 
-
-
-
     public class ClassWriter<T> : SupportSerializable<T>, ClassWriteInterface where T : new()
     {
         internal Func<BitStream, T, BitStream> SerializerList;
-        internal Action<BitStream, int,T> DeserializeArray;
+        internal Info[] DeserializeArray;
+        private const int TagTypeBits = 3;
+        private const uint TagTypeMask = (1 << TagTypeBits) - 1;
+        public static readonly Func<T> Instance = Expression.Lambda<Func<T>>(Expression.New(typeof(T))).Compile();
+        public class Info 
+        {
+            public Action<BitStream, T> Action;
+            public TypeUtility.FieldData Data;
+        }
         public int Length { get; set; }
         private List<TypeUtility.FieldData> datas;
         private Type t;
@@ -154,7 +160,7 @@ namespace DreamSerialize.WriterHelper
             t = typeof(T);
             datas = TypeUtility.GetAllVariableWithIndex(t);
             Length = datas.Count;
-
+            DeserializeArray = new Info[Length];
             //序列化
             {
                 List<Expression> expression = new List<Expression>();
@@ -173,7 +179,7 @@ namespace DreamSerialize.WriterHelper
                     var serDefault = serType.GetField("Default");
                     var getSer = Check(serDefault, type);
                     var method = serType.GetMethod("Serialize", new[] { typeof(BitStream), type });
-                    var arg2 = Expression.Constant(data.Index, typeof(int));
+                    var arg2 = Expression.Constant(GetIndex(data.Index,type), typeof(int));
                     var fp = Expression.PropertyOrField(arg1, data.Name);
                     var pGetter = Expression.Constant(getSer, getSer.GetType());
                     var call = Expression.Call(pGetter, method, arg0, fp);
@@ -199,35 +205,52 @@ namespace DreamSerialize.WriterHelper
                 }
             }
 
+
             //反序列化
             {
                 var arg0 = Expression.Parameter(typeof(BitStream), "data");
-                var arg1 = Expression.Parameter(typeof(int), "index");
-                var arg2 = Expression.Parameter(t, "T");
-                List<SwitchCase> sw = new List<SwitchCase>();
+                var arg1 = Expression.Parameter(t, "T");
+                //Expression.Loop()
+                //List<SwitchCase> sw = new List<SwitchCase>();
                 for (int node = 0; node < Length; node++)
                 {
                     var data = datas[node];
                     var type = data.Type;
-
-                    var fp = Expression.PropertyOrField(arg2, data.Name);
+                    var fp = Expression.PropertyOrField(arg1, data.Name);
                     var serType = typeof(SupportSerializable<>).MakeGenericType(type);
                     var serDefault = serType.GetField("Default");
-                    Check(serDefault, type);
-                    var method = serType.GetMethod("Deserialize", new[] { typeof(BitStream) });
-                    var pGetter = Expression.Field(null, serDefault);
-                    var assign = Expression.Assign(fp, Expression.Call(pGetter, method, arg0));
-                    sw.Add(Expression.SwitchCase(Expression.Block(assign,Expression.Constant(null)), Expression.Constant(data.Index,typeof(int))));
-                }
-                if (sw.Count != 0)
-                {
-                    var s = Expression.Switch(arg1, Expression.Constant(null), sw.ToArray());
-                    DeserializeArray = Expression.Lambda<Action<BitStream, int, T>>(s, arg0, arg1, arg2).Compile();
+                    var o = Check(serDefault, type);
+                    //var pGetter = Expression.Field(null, serDefault);
+                    var constant = Expression.Constant(o, o.GetType());
+                    var method = o.GetType().GetMethod("Deserialize", new[] { typeof(BitStream) });
+                    var call = Expression.Assign(fp,Expression.Call(constant, method, arg0));
+                    var lambda = Expression.Lambda<Action<BitStream, T>>(call, arg0, arg1);
+                    var action = lambda.Compile();
+                    var sss = new Info();
+                    sss.Action = action;
+                    sss.Data = data;
+                    DeserializeArray[node] = sss;
                 }
             }
         }
-
-       
+         
+        private static int GetIndex(int tag, Type type)
+        {
+            tag <<= TagTypeBits;
+            if (type == typeof(byte) || type == typeof(sbyte) || type == typeof(int) || type == typeof(uint) || type == typeof(short) || type == typeof(ushort))
+                tag |= (int) IType.Variable32;
+            else if (type == typeof(float))
+                tag |= (int) IType.Fixed32;
+            else if (type == typeof(double))
+                tag |= (int) IType.Fixed64;
+            else if (type == typeof(long) || type == typeof(ulong))
+                tag |= (int) IType.Variable64;
+            else if (type == typeof(string) ||type.IsArray || typeof(IEnumerable).IsAssignableFrom(type))
+                tag |= (int) IType.Dynamic;
+            else if (type.IsClass || type.IsValueType)
+                tag |= (int) IType.EndGroup;
+            return tag;
+        }
 
         private static object Check(FieldInfo field, Type type)
         {
@@ -246,20 +269,61 @@ namespace DreamSerialize.WriterHelper
                 return SerializerList(stream, value);
             return stream;
         }
-
         public override T Deserialize(BitStream stream)
         {
             if (DeserializeArray == null)
                 return default(T);
             if (stream.Bytes.Length == 0)
                 return default(T);
-            var obj = new T();
+            var obj = Instance();
             int index = 0;
-            while ((index = BinaryReader.ReadInt32(stream)) != 0)
+            while (index < Length)
             {
-                DeserializeArray(stream, index, obj);
+                var deserialize = DeserializeArray[index];
+                var tag = BinaryReader.ReadInt32(stream);
+                if (deserialize.Data.Index == (tag >> 3))
+                {
+                    deserialize.Action(stream, obj);
+                    index++;
+                }
+                else
+                {
+                    ReadTag(stream, tag);
+                }
             }
             return obj;
+        }
+
+        private static void ReadTag(BitStream stream, int tag)
+        {
+            var type = (IType)(tag & TagTypeMask);
+            switch (type)
+            {
+                case IType.Variable32:
+                    BinaryReader.ReadUInt32(stream);
+                    break;
+                case IType.Variable64:
+                    BinaryReader.ReadUInt64(stream);
+                    break;
+                case IType.Fixed32:
+                    stream.Offset += 4;
+                    break;
+                case IType.Fixed64:
+                    stream.Offset += 8;
+                    break;
+                case IType.Dynamic:
+                    stream.Offset += BinaryReader.ReadInt32(stream);
+                    break;
+                case IType.EndGroup:
+                    while (true)
+                    {
+                        int loopTag = BinaryReader.ReadInt32(stream);
+                        if (loopTag == 0)
+                            break;
+                        ReadTag(stream, loopTag);
+                    }
+                    break;
+            }
         }
     }
 }
