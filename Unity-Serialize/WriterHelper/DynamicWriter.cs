@@ -5,32 +5,36 @@ using System.Reflection;
 using DreamSerialize.New;
 using DreamSerialize.Utility;
 using Theraot.Core.System.Linq.Expressions;
+using UnityEngine;
+using BitStream = DreamSerialize.New.BitStream;
 using Expression = Theraot.Core.System.Linq.Expressions.Expression;
 
 
 namespace DreamSerialize.WriterHelper
 {
-    public class DynamicWriter<T>
+    public class DynamicWriter
     {
-        public static void Write(BitStream stream, T value)
+        public static void Write(BitStream stream, object value, Type t)
         {
-            if (value == null)
-                return;
-            SupportSerializable<T> serializer = GeneratorWriter();
-            serializer.Serialize(stream,value);
-        }
-        public static T Read(BitStream stream)
-        {
-            SupportSerializable<T> serializer = GeneratorWriter();
-            return serializer.Deserialize(stream);
-        }
-        public static SupportSerializable<T> GeneratorWriter()
-        {
-            return SupportSerializable<T>.Default ?? (SupportSerializable<T>)GeneratorWriter(typeof(T));
+            typeof(DynamicWriter<>).MakeGenericType(t)
+                .InvokeMember("Write", BindingFlags.Static | BindingFlags.InvokeMethod | BindingFlags.Public, null, null,
+                    new[] {stream, value});
         }
 
-        private static object GeneratorWriter(Type t)
+        public static object Read(BitStream stream, Type t)
         {
+            return typeof(DynamicWriter<>).MakeGenericType(t)
+                .InvokeMember("Read", BindingFlags.Static | BindingFlags.InvokeMethod | BindingFlags.Public, null, null,
+                    new object[] {stream});
+        }
+
+        internal static object GeneratorWriter(Type t)
+        {
+            Type customT;
+            if (CustomSerializer.Custom.TryGetValue(t, out customT))
+            {
+                return Activator.CreateInstance(customT);
+            }
             if (t.IsValueType)
             {
                 if (t == typeof(int))
@@ -53,6 +57,10 @@ namespace DreamSerialize.WriterHelper
                     return new WriteForDecimal();
                 else if (t == typeof(double))
                     return new WriteForDouble();
+                else if (t == typeof(bool))
+                    return new WriteForBoolean();
+                else if (t.IsEnum)
+                    return new WriteForInt32();
 #if Unity
                 else if (t == typeof(UnityEngine.Rect))
                 {
@@ -89,12 +97,12 @@ namespace DreamSerialize.WriterHelper
                     var obj = typeof(ListWriter<>).MakeGenericType(t.GenericTypeArguments());
                     return Activator.CreateInstance(obj);
                 }
-                else if (genericT == typeof(KeyValuePair<,>))
-                {
-                    
-                }
+                /*                else if (genericT == typeof(KeyValuePair<,>))
+                                {
+
+                                }*/
             }
-            else if (t.IsClass)
+            if (t.IsClass)
             {
                 if (!t.IsArray)
                 {
@@ -106,24 +114,26 @@ namespace DreamSerialize.WriterHelper
                     var elemtType = t.GetElementType();
                     if (elemtType.IsValueType)
                     {
-                        if (t == typeof(int))
+                        if (elemtType == typeof(int))
                             return new Int32ArrayWrite();
-                        else if (t == typeof(uint))
+                        else if (elemtType == typeof(uint))
                             return new UInt32ArrayWrite();
-                        else if (t == typeof(ushort))
+                        else if (elemtType == typeof(ushort))
                             return new UInt16ArrayWrite();
-                        else if (t == typeof(short))
+                        else if (elemtType == typeof(short))
                             return new Int16ArrayWrite();
-                        else if (t == typeof(long))
+                        else if (elemtType == typeof(long))
                             return new Int64ArrayWrite();
-                        else if (t == typeof(ulong))
+                        else if (elemtType == typeof(ulong))
                             return new UInt64ArrayWrite();
-                        else if (t == typeof(float))
+                        else if (elemtType == typeof(float))
                             return new SingleArrayWrite();
-                        else if (t == typeof(decimal))
+                        else if (elemtType == typeof(decimal))
                             return new DecimalArrayWrite();
-                        else if (t == typeof(double))
+                        else if (elemtType == typeof(double))
                             return new DoubleArrayWrite();
+                        else if (elemtType.IsEnum)
+                            return new Int32ArrayWrite();
                     }
                     else if (elemtType == typeof(string))
                         return new StringArrayWrite();
@@ -132,6 +142,31 @@ namespace DreamSerialize.WriterHelper
                 }
             }
             return null;
+        }
+    }
+
+    public class DynamicWriter<T>
+    {
+        public static void Write(BitStream stream, T value)
+        {
+            if (value == null)
+                return;
+            SupportSerializable<T> serializer = GeneratorWriter();
+            serializer.Serialize(stream,value);
+        }
+        public static T Read(BitStream stream)
+        {
+            SupportSerializable<T> serializer = GeneratorWriter();
+            if (serializer == null)
+            {
+                throw new Exception("当前不支持该类型" + "    " + typeof(T));
+                return default(T);
+            }
+            return serializer.Deserialize(stream);
+        }
+        internal static SupportSerializable<T> GeneratorWriter()
+        {
+            return SupportSerializable<T>.Default ?? (SupportSerializable<T>) DynamicWriter.GeneratorWriter(typeof(T));
         }
     }
 
@@ -175,21 +210,44 @@ namespace DreamSerialize.WriterHelper
                 {
                     var data = datas[i];
                     var type = data.Type;
-                    var serType = typeof(SupportSerializable<>).MakeGenericType(type);
-                    var serDefault = serType.GetField("Default");
-                    var getSer = Check(serDefault, type);
-                    var method = serType.GetMethod("Serialize", new[] { typeof(BitStream), type });
+                    Type serType;
+                    FieldInfo serDefault;
+                    object getSer;
+                    MethodInfo method;
+                    if (type.IsEnum)
+                    {
+                        serType = typeof(SupportSerializable<>).MakeGenericType(typeof(int));
+                        serDefault = serType.GetField("Default");
+                        getSer = Check(serDefault, typeof(int));
+                        method = serType.GetMethod("Serialize", new[] {typeof(BitStream), typeof(int)});
+                    }
+                    else
+                    {
+                        serType = typeof(SupportSerializable<>).MakeGenericType(type);
+                        serDefault = serType.GetField("Default");
+                        getSer = Check(serDefault, type);
+                        method = serType.GetMethod("Serialize", new[] { typeof(BitStream), type });
+                    }
+                    if (serDefault == null)
+                    {
+                        //throw new Exception("当前不支持该类型" + "    " + typeof(T));
+                        continue;
+                    }
                     var arg2 = Expression.Constant(GetIndex(data.Index,type), typeof(int));
                     var fp = Expression.PropertyOrField(arg1, data.Name);
                     var pGetter = Expression.Constant(getSer, getSer.GetType());
-                    var call = Expression.Call(pGetter, method, arg0, fp);
+                    MethodCallExpression call;
+                    if (!type.IsEnum)
+                        call = Expression.Call(pGetter, method, arg0, fp);
+                    else
+                        call = Expression.Call(pGetter, method, arg0, Expression.Convert(fp, typeof(int)));
                     var writeIndex = Expression.Call(iGetter, writeHead, arg0, arg2);
                     var classWriterInterface = getSer as ClassWriteInterface;
                     if (classWriterInterface != null)
                     {
                         var isNull = Expression.NotEqual(fp, Expression.Constant(null, typeof(object)));
                         BlockExpression haveValue = Expression.Block(writeIndex, call);
-                        finalCall = Expression.Condition(isNull, haveValue, arg0);
+                        finalCall = Expression.Condition(isNull, haveValue, Expression.Call(iGetter, writeHead, arg0, Expression.Constant(-1, typeof(int))));
                     }
                     else
                     {
@@ -217,13 +275,28 @@ namespace DreamSerialize.WriterHelper
                     var data = datas[node];
                     var type = data.Type;
                     var fp = Expression.PropertyOrField(arg1, data.Name);
-                    var serType = typeof(SupportSerializable<>).MakeGenericType(type);
+                    Type serType;
+                    if (type.IsEnum)
+                        serType = typeof(SupportSerializable<>).MakeGenericType(typeof(int));
+                    else
+                        serType = typeof(SupportSerializable<>).MakeGenericType(type);
+
                     var serDefault = serType.GetField("Default");
-                    var o = Check(serDefault, type);
+                    if (serDefault == null)
+                    {
+                        //throw new Exception("当前不支持该类型" + "    " + typeof(T));
+                        continue;
+                    }
+                    var o = Check(serDefault, type.IsEnum ? typeof(int) : type);
                     //var pGetter = Expression.Field(null, serDefault);
                     var constant = Expression.Constant(o, o.GetType());
                     var method = o.GetType().GetMethod("Deserialize", new[] { typeof(BitStream) });
-                    var call = Expression.Assign(fp,Expression.Call(constant, method, arg0));
+
+                    BinaryExpression call;
+                    if (!type.IsEnum)
+                        call = Expression.Assign(fp, Expression.Call(constant, method, arg0));
+                    else
+                        call = Expression.Assign(fp, Expression.Convert(Expression.Call(constant, method, arg0),type));
                     var lambda = Expression.Lambda<Action<BitStream, T>>(call, arg0, arg1);
                     var action = lambda.Compile();
                     var sss = new Info();
@@ -255,12 +328,7 @@ namespace DreamSerialize.WriterHelper
         private static object Check(FieldInfo field, Type type)
         {
             var obj = field.GetValue(null);
-            if (obj == null)
-            {
-                var generate = typeof(DynamicWriter<>).MakeGenericType(type).GetMethod("GeneratorWriter");
-                return generate.Invoke(null, null);
-            }
-            return obj;
+            return obj ?? DynamicWriter.GeneratorWriter(type);
         }
 
         public override BitStream Serialize(BitStream stream, T value)
@@ -281,6 +349,13 @@ namespace DreamSerialize.WriterHelper
             {
                 var deserialize = DeserializeArray[index];
                 var tag = BinaryReader.ReadInt32(stream);
+                if (tag == 0)
+                    return obj;
+                else if (tag == -1)
+                {
+                    index++;
+                    continue;
+                }
                 if (deserialize.Data.Index == (tag >> 3))
                 {
                     deserialize.Action(stream, obj);
@@ -291,6 +366,8 @@ namespace DreamSerialize.WriterHelper
                     ReadTag(stream, tag);
                 }
             }
+            //End Group
+            stream.Offset++;
             return obj;
         }
 

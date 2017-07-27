@@ -2,7 +2,7 @@
 
 namespace DreamSerialize.WriterHelper
 {
-    public class ClassArrayWriter<T> : SupportSerializable<T[]> where T : new()
+    public class ClassArrayWriter<T> : SupportSerializable<T[]> where T : class,new()
     {
         private ClassWriter<T> mSerializer;
         public ClassArrayWriter()

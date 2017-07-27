@@ -7,14 +7,9 @@ namespace DreamSerialize.WriterHelper
     public class BinaryWriter
     {
         private static byte[] mBuffer = new byte[16];
-        private static Encoding mEncoding;
-        private static Encoder mEncoder;
+        private static Encoding mEncoding = Encoding.UTF8;
+        private static Encoder mEncoder = mEncoding.GetEncoder();
 
-        public BinaryWriter()
-        {
-            mEncoding = new UTF8Encoding(false, true);
-            mEncoder = mEncoding.GetEncoder();
-        }
         #region Ref Write
         public static void Write(ref byte[] bytes, ref int offset, bool value)
         {
@@ -241,7 +236,7 @@ namespace DreamSerialize.WriterHelper
 
         public static void Write(BitStream stream, long value)
         {
-/*            var union = new LongUnion { Value = value };
+            var union = new LongUnion { Value = value };
             Write(stream, union.byte0);
             Write(stream, union.byte1);
             Write(stream, union.byte2);
@@ -249,8 +244,7 @@ namespace DreamSerialize.WriterHelper
             Write(stream, union.byte4);
             Write(stream, union.byte5);
             Write(stream, union.byte6);
-            Write(stream, union.byte7);*/
-            Write(stream,(ulong)value);
+            Write(stream, union.byte7);
         }
 
         public static void Write(BitStream stream, int value)

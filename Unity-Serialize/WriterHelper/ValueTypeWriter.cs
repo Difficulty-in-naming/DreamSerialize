@@ -1,10 +1,11 @@
-﻿using DreamSerialize.New;
+﻿using System;
+using DreamSerialize.New;
 using BitStream = DreamSerialize.New.BitStream;
 
 namespace DreamSerialize.WriterHelper
 {
 
-    public class WriteForByte : SupportSerializable<byte>
+    internal class WriteForByte : SupportSerializable<byte>
     {
         public override BitStream Serialize(BitStream stream, byte value)
         {
@@ -17,7 +18,7 @@ namespace DreamSerialize.WriterHelper
             return (byte)BinaryReader.ReadUInt32(stream);
         }
     }
-    public class WriteForSByte : SupportSerializable<sbyte>
+    internal class WriteForSByte : SupportSerializable<sbyte>
     {
         public override BitStream Serialize(BitStream stream, sbyte value)
         {
@@ -30,7 +31,7 @@ namespace DreamSerialize.WriterHelper
             return (sbyte)BinaryReader.ReadUInt32(stream);
         }
     }
-    public class WriteForSingle : SupportSerializable<float>
+    internal class WriteForSingle : SupportSerializable<float>
     {
         public override BitStream Serialize(BitStream stream, float value)
         {
@@ -44,7 +45,7 @@ namespace DreamSerialize.WriterHelper
         }
     }
 
-    public class WriteForDouble : SupportSerializable<double>
+    internal class WriteForDouble : SupportSerializable<double>
     {
         public override BitStream Serialize(BitStream stream, double value)
         {
@@ -58,7 +59,7 @@ namespace DreamSerialize.WriterHelper
         }
     }
 
-    public class WriteForDecimal : SupportSerializable<decimal>
+    internal class WriteForDecimal : SupportSerializable<decimal>
     {
         public override BitStream Serialize(BitStream stream, decimal value)
         {
@@ -72,7 +73,7 @@ namespace DreamSerialize.WriterHelper
         }
     }
 
-    public class WriteForInt64 : SupportSerializable<long>
+    internal class WriteForInt64 : SupportSerializable<long>
     {
         public override BitStream Serialize(BitStream stream, long value)
         {
@@ -86,7 +87,7 @@ namespace DreamSerialize.WriterHelper
         }
     }
 
-    public class WriteForUInt64 : SupportSerializable<ulong>
+    internal class WriteForUInt64 : SupportSerializable<ulong>
     {
         public override BitStream Serialize(BitStream stream, ulong value)
         {
@@ -100,7 +101,7 @@ namespace DreamSerialize.WriterHelper
         }
     }
 
-    public class WriteForInt32 : SupportSerializable<int>
+    internal class WriteForInt32 : SupportSerializable<int>
     {
         public override BitStream Serialize(BitStream stream, int value)
         {
@@ -114,7 +115,7 @@ namespace DreamSerialize.WriterHelper
         }
     }
 
-    public class WriteForUInt32 : SupportSerializable<uint>
+    internal class WriteForUInt32 : SupportSerializable<uint>
     {
         public override BitStream Serialize(BitStream stream, uint value)
         {
@@ -128,7 +129,7 @@ namespace DreamSerialize.WriterHelper
         }
     }
 
-    public class WriteForInt16 : SupportSerializable<short>
+    internal class WriteForInt16 : SupportSerializable<short>
     {
         public override BitStream Serialize(BitStream stream, short value)
         {
@@ -142,7 +143,7 @@ namespace DreamSerialize.WriterHelper
         }
     }
 
-    public class WriteForUInt16 : SupportSerializable<ushort>
+    internal class WriteForUInt16 : SupportSerializable<ushort>
     {
         public override BitStream Serialize(BitStream stream, ushort value)
         {
@@ -167,6 +168,21 @@ namespace DreamSerialize.WriterHelper
         public override string Deserialize(BitStream stream)
         {
             return BinaryReader.ReadString(stream);
+
+        }
+    }
+
+    internal class WriteForBoolean : SupportSerializable<bool>
+    {
+        public override BitStream Serialize(BitStream stream, bool value)
+        {
+            BinaryWriter.Write(stream, value);
+            return stream;
+        }
+
+        public override bool Deserialize(BitStream stream)
+        {
+            return BinaryReader.ReadBoolean(stream);
 
         }
     }

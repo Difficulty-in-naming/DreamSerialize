@@ -17,8 +17,8 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>TRACE;DEBUG</DefineConstants>
+    <OutputPath>..\..\..\SuperHero\Assets\Plugins\Serialize\DreamSerialize\</OutputPath>
+    <DefineConstants>TRACE;DEBUG;Unity;</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <Prefer32Bit>false</Prefer32Bit>
@@ -26,6 +26,8 @@
     <RunCodeAnalysis>false</RunCodeAnalysis>
     <PlatformTarget>AnyCPU</PlatformTarget>
     <GenerateSerializationAssemblies>Off</GenerateSerializationAssemblies>
+    <DocumentationFile>
+    </DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -39,7 +41,7 @@
     <PlatformTarget>AnyCPU</PlatformTarget>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Unity|AnyCPU' ">
-    <OutputPath>..\..\..\..\Unity\SuperHero\Assets\New Folder\</OutputPath>
+    <OutputPath>..\..\..\SuperHero\Assets\Plugins\Serialize\</OutputPath>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <DefineConstants>Unity</DefineConstants>
     <Prefer32Bit>false</Prefer32Bit>
@@ -51,45 +53,17 @@
     <ErrorReport>prompt</ErrorReport>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="ClassLibrary1">
+    <Reference Include="ClassLibrary1, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
       <HintPath>..\ClassLibrary1\bin\Release\ClassLibrary1.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
-    <Reference Include="UnityEngine, Version=0.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>..\..\..\..\..\Program Files\Unity\Editor\Data\Managed\UnityEngine.dll</HintPath>
-      <SpecificVersion>False</SpecificVersion>
-      <Private>False</Private>
+    <Reference Include="UnityEngine">
+      <HintPath>D:\Program Files\Unity\Editor\Data\Managed\UnityEngine.dll</HintPath>
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\..\..\..\..\users\administrator\desktop\csharp-eval-unity3d-master\gamedevware.dynamic.expressions.unity\assets\plugins\gamedevware.dynamic.expressions\AotCompilation.cs">
-      <Link>Reflection\AotCompilation.cs</Link>
-    </Compile>
-    <Compile Include="..\..\..\..\..\users\administrator\desktop\csharp-eval-unity3d-master\gamedevware.dynamic.expressions.unity\assets\plugins\gamedevware.dynamic.expressions\Constants.cs">
-      <Link>Reflection\Constants.cs</Link>
-    </Compile>
-    <Compile Include="..\..\..\..\..\users\administrator\desktop\csharp-eval-unity3d-master\gamedevware.dynamic.expressions.unity\assets\plugins\gamedevware.dynamic.expressions\Executor.cs">
-      <Link>Reflection\Executor.cs</Link>
-    </Compile>
-    <Compile Include="..\..\..\..\..\users\administrator\desktop\csharp-eval-unity3d-master\gamedevware.dynamic.expressions.unity\assets\plugins\gamedevware.dynamic.expressions\Executor.Intrinsics.cs">
-      <Link>Reflection\Executor.Intrinsics.cs</Link>
-    </Compile>
-    <Compile Include="..\..\..\..\..\users\administrator\desktop\csharp-eval-unity3d-master\gamedevware.dynamic.expressions.unity\assets\plugins\gamedevware.dynamic.expressions\Executor.MethodCall.cs">
-      <Link>Reflection\Executor.MethodCall.cs</Link>
-    </Compile>
-    <Compile Include="..\..\..\..\..\users\administrator\desktop\csharp-eval-unity3d-master\gamedevware.dynamic.expressions.unity\assets\plugins\gamedevware.dynamic.expressions\ExpressionExtentions.cs">
-      <Link>Reflection\ExpressionExtentions.cs</Link>
-    </Compile>
-    <Compile Include="..\..\..\..\..\users\administrator\desktop\csharp-eval-unity3d-master\gamedevware.dynamic.expressions.unity\assets\plugins\gamedevware.dynamic.expressions\ExpressionSubstitutor.cs">
-      <Link>Reflection\ExpressionSubstitutor.cs</Link>
-    </Compile>
-    <Compile Include="..\..\..\..\..\users\administrator\desktop\csharp-eval-unity3d-master\gamedevware.dynamic.expressions.unity\assets\plugins\gamedevware.dynamic.expressions\ExpressionVisitor.cs">
-      <Link>Reflection\ExpressionVisitor.cs</Link>
-    </Compile>
-    <Compile Include="..\..\..\..\..\users\administrator\desktop\csharp-eval-unity3d-master\gamedevware.dynamic.expressions.unity\assets\plugins\gamedevware.dynamic.expressions\MethodCallSignature.cs">
-      <Link>Reflection\MethodCallSignature.cs</Link>
-    </Compile>
     <Compile Include="New\BinaryReader.cs" />
     <Compile Include="New\BitStream.cs" />
     <Compile Include="New\Interface.cs" />
@@ -102,6 +76,7 @@
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>
     </Compile>
+    <Compile Include="Utility\CustomSerializer.cs" />
     <Compile Include="Utility\IType.cs" />
     <Compile Include="Utility\TypeUtility.cs" />
     <Compile Include="WriterHelper\ArrayWriter.cs" />
