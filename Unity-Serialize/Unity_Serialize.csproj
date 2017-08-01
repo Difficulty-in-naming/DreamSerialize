@@ -17,7 +17,7 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>..\..\..\SuperHero\Assets\Plugins\Serialize\DreamSerialize\</OutputPath>
+    <OutputPath>..\..\..\SuperHero\Assets\DreamSerialize\</OutputPath>
     <DefineConstants>TRACE;DEBUG;Unity;</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -61,6 +61,7 @@
     <Reference Include="System.Core" />
     <Reference Include="UnityEngine">
       <HintPath>D:\Program Files\Unity\Editor\Data\Managed\UnityEngine.dll</HintPath>
+      <Private>False</Private>
     </Reference>
   </ItemGroup>
   <ItemGroup>

@@ -5,7 +5,9 @@ using System.Reflection;
 using DreamSerialize.New;
 using DreamSerialize.Utility;
 using Theraot.Core.System.Linq.Expressions;
+#if Unity
 using UnityEngine;
+#endif
 using BitStream = DreamSerialize.New.BitStream;
 using Expression = Theraot.Core.System.Linq.Expressions.Expression;
 
@@ -172,7 +174,6 @@ namespace DreamSerialize.WriterHelper
 
     public interface ClassWriteInterface
     {
-        int Length { get; set; }
     }
 
     public class ClassWriter<T> : SupportSerializable<T>, ClassWriteInterface where T : new()
@@ -182,6 +183,7 @@ namespace DreamSerialize.WriterHelper
         private const int TagTypeBits = 3;
         private const uint TagTypeMask = (1 << TagTypeBits) - 1;
         public static readonly Func<T> Instance = Expression.Lambda<Func<T>>(Expression.New(typeof(T))).Compile();
+        internal static ConstantExpression Null = Expression.Constant(null, typeof(object));
         public class Info 
         {
             public Action<BitStream, T> Action;
@@ -195,109 +197,161 @@ namespace DreamSerialize.WriterHelper
             t = typeof(T);
             datas = TypeUtility.GetAllVariableWithIndex(t);
             Length = datas.Count;
+            if (Length == 0)
+                return;
             DeserializeArray = new Info[Length];
+#if DEBUG && Unity
+            var debugMethod = typeof(Debug).GetMethod("Log", new[] { typeof(object) });
+            var int2StringMethod = typeof(int).GetMethod("ToString", Type.EmptyTypes);
+            var concat = typeof(string).GetMethod("Concat", new[] { typeof(string), typeof(string), });
+#endif
             //序列化
             {
                 List<Expression> expression = new List<Expression>();
-                var arg0 = Expression.Parameter(typeof(BitStream), "data");
-                var arg1 = Expression.Parameter(t, "T");
+                var bitStream = Expression.Parameter(typeof(BitStream), "data");
+                var instance = Expression.Parameter(t, "T");
                 Expression finalCall = null;
-                var writeHead = typeof(WriteForInt32).GetMethod("Serialize", new[] { typeof(BitStream), typeof(int) });
+                var writeIndexMethod = typeof(WriteForInt32).GetMethod("Serialize", new[] { typeof(BitStream), typeof(int) });
                 if (WriteForInt32.Default == null)
                     new WriteForInt32();
-                var iGetter = Expression.Constant(WriteForInt32.Default, typeof(WriteForInt32));
+                var writeIndexInstance = Expression.Constant(WriteForInt32.Default, typeof(WriteForInt32));
+
                 for (int i = 0; i < Length; i++)
                 {
                     var data = datas[i];
                     var type = data.Type;
                     Type serType;
                     FieldInfo serDefault;
-                    object getSer;
-                    MethodInfo method;
+                    object serializeClass;
+                    MethodInfo serMethod;
                     if (type.IsEnum)
                     {
                         serType = typeof(SupportSerializable<>).MakeGenericType(typeof(int));
                         serDefault = serType.GetField("Default");
-                        getSer = Check(serDefault, typeof(int));
-                        method = serType.GetMethod("Serialize", new[] {typeof(BitStream), typeof(int)});
+                        serializeClass = Check(serDefault, typeof(int));
+                        serMethod = serType.GetMethod("Serialize", new[] {typeof(BitStream), typeof(int)});
                     }
                     else
                     {
                         serType = typeof(SupportSerializable<>).MakeGenericType(type);
                         serDefault = serType.GetField("Default");
-                        getSer = Check(serDefault, type);
-                        method = serType.GetMethod("Serialize", new[] { typeof(BitStream), type });
+                        serializeClass = Check(serDefault, type);
+                        serMethod = serType.GetMethod("Serialize", new[] { typeof(BitStream), type });
                     }
                     if (serDefault == null)
                     {
-                        //throw new Exception("当前不支持该类型" + "    " + typeof(T));
-                        continue;
+                        throw new Exception("当前不支持该类型" + "    " + typeof(T));
+                        //continue;
                     }
-                    var arg2 = Expression.Constant(GetIndex(data.Index,type), typeof(int));
-                    var fp = Expression.PropertyOrField(arg1, data.Name);
-                    var pGetter = Expression.Constant(getSer, getSer.GetType());
+                    var compressIndex = Expression.Constant(GetIndex(data.Index,type), typeof(int));
+                    var field = Expression.PropertyOrField(instance, data.Name);
+                    var serialize = Expression.Constant(serializeClass, serializeClass.GetType());
                     MethodCallExpression call;
                     if (!type.IsEnum)
-                        call = Expression.Call(pGetter, method, arg0, fp);
+                        call = Expression.Call(serialize, serMethod, bitStream, field);
                     else
-                        call = Expression.Call(pGetter, method, arg0, Expression.Convert(fp, typeof(int)));
-                    var writeIndex = Expression.Call(iGetter, writeHead, arg0, arg2);
-                    var classWriterInterface = getSer as ClassWriteInterface;
+                        call = Expression.Call(serialize, serMethod, bitStream, Expression.Convert(field, typeof(int)));
+                    var writeIndex = Expression.Call(writeIndexInstance, writeIndexMethod, bitStream, compressIndex);
+                    var classWriterInterface = serializeClass as ClassWriteInterface;
                     if (classWriterInterface != null)
                     {
-                        var isNull = Expression.NotEqual(fp, Expression.Constant(null, typeof(object)));
-                        BlockExpression haveValue = Expression.Block(writeIndex, call);
-                        finalCall = Expression.Condition(isNull, haveValue, Expression.Call(iGetter, writeHead, arg0, Expression.Constant(-1, typeof(int))));
+                        //如果是类为空则写入Null标记符,如果不为空则写入数据
+                        var notNull = Expression.NotEqual(field, Null);
+                        finalCall = Expression.IfThenElse(
+                            notNull,
+                            Expression.Block(
+                                writeIndex,
+#if Unity && DEBUG
+                                Expression.Call(debugMethod,
+                                    Expression.Convert(
+                                        Expression.Call(concat, Expression.Constant("类型:" + t.FullName + ",正在写入Index:" + data.Index + ",压缩后:" + GetIndex(data.Index, type) + "当前占用字节:", typeof(string)),
+                                            Expression.Call(Expression.PropertyOrField(bitStream, "Offset"), int2StringMethod)), typeof(object))),
+#endif
+                                call,
+#if Unity && DEBUG
+                                Expression.Call(debugMethod,
+                                    Expression.Convert(
+                                        Expression.Call(concat, Expression.Constant("类型:" + t.FullName + ",名称:" + data.Name + ",当前占用字节:", typeof(string)),
+                                            Expression.Call(Expression.PropertyOrField(bitStream, "Offset"), int2StringMethod)), typeof(object)))
+#endif
+                            ),
+                            Expression.Call(writeIndexInstance, writeIndexMethod, bitStream, Expression.Constant(-1, typeof(int))));
                     }
                     else
                     {
-                        finalCall = Expression.Block(writeIndex, call);
+                        finalCall = Expression.Block(writeIndex,
+#if Unity && DEBUG
+                            Expression.Call(debugMethod,
+                                Expression.Convert(
+                                    Expression.Call(concat, Expression.Constant("类型:" + t.FullName + ",正在写入Index:" + data.Index + ",压缩后:" + GetIndex(data.Index, type) + "当前占用字节:", typeof(string)),
+                                        Expression.Call(Expression.PropertyOrField(bitStream, "Offset"), int2StringMethod)), typeof(object))),
+#endif
+                            call,
+#if Unity && DEBUG
+                            Expression.Call(debugMethod,
+                                Expression.Convert(
+                                    Expression.Call(concat, Expression.Constant("类型:" + t.FullName + ",名称:" + data.Name + ",当前占用字节:", typeof(string)),
+                                        Expression.Call(Expression.PropertyOrField(bitStream, "Offset"), int2StringMethod)), typeof(object)))
+#endif
+                        );
                     }
                     expression.Add(finalCall);
                 }
                 if (expression.Count != 0)
                 {
-                    expression.Add(Expression.Call(iGetter, writeHead, arg0, Expression.Constant(0, typeof(int))));
+                    expression.Add(Expression.Call(writeIndexInstance, writeIndexMethod, bitStream, Expression.Constant(0, typeof(int))));
                     var block = Expression.Block(expression);
-                    SerializerList = Expression.Lambda<Func<BitStream, T, BitStream>>(block, arg0, arg1).Compile();
+                    SerializerList = Expression.Lambda<Func<BitStream, T, BitStream>>(block, bitStream, instance).Compile();
                 }
             }
 
 
             //反序列化
             {
-                var arg0 = Expression.Parameter(typeof(BitStream), "data");
-                var arg1 = Expression.Parameter(t, "T");
+                var bitStream = Expression.Parameter(typeof(BitStream), "data");
+                var instance = Expression.Parameter(t, "T");
                 //Expression.Loop()
                 //List<SwitchCase> sw = new List<SwitchCase>();
                 for (int node = 0; node < Length; node++)
                 {
                     var data = datas[node];
                     var type = data.Type;
-                    var fp = Expression.PropertyOrField(arg1, data.Name);
-                    Type serType;
+                    var fp = Expression.PropertyOrField(instance, data.Name);
+                    Type deserializeType;
                     if (type.IsEnum)
-                        serType = typeof(SupportSerializable<>).MakeGenericType(typeof(int));
+                        deserializeType = typeof(SupportSerializable<>).MakeGenericType(typeof(int));
                     else
-                        serType = typeof(SupportSerializable<>).MakeGenericType(type);
+                        deserializeType = typeof(SupportSerializable<>).MakeGenericType(type);
 
-                    var serDefault = serType.GetField("Default");
-                    if (serDefault == null)
+                    var deserializeDefault = deserializeType.GetField("Default");
+                    if (deserializeDefault == null)
                     {
-                        //throw new Exception("当前不支持该类型" + "    " + typeof(T));
-                        continue;
+                        throw new Exception("当前不支持该类型" + "    " + typeof(T));
+                        //continue;
                     }
-                    var o = Check(serDefault, type.IsEnum ? typeof(int) : type);
+                    var deserializeAdapter = Check(deserializeDefault, type.IsEnum ? typeof(int) : type);
                     //var pGetter = Expression.Field(null, serDefault);
-                    var constant = Expression.Constant(o, o.GetType());
-                    var method = o.GetType().GetMethod("Deserialize", new[] { typeof(BitStream) });
+                    var constant = Expression.Constant(deserializeAdapter, deserializeAdapter.GetType());
+                    var deserializeMethod = deserializeAdapter.GetType().GetMethod("Deserialize", new[] { typeof(BitStream) });
 
                     BinaryExpression call;
                     if (!type.IsEnum)
-                        call = Expression.Assign(fp, Expression.Call(constant, method, arg0));
+                        call = Expression.Assign(fp, Expression.Call(constant, deserializeMethod, bitStream));
                     else
-                        call = Expression.Assign(fp, Expression.Convert(Expression.Call(constant, method, arg0),type));
-                    var lambda = Expression.Lambda<Action<BitStream, T>>(call, arg0, arg1);
+                        call = Expression.Assign(fp, Expression.Convert(Expression.Call(constant, deserializeMethod, bitStream),type));
+                    Expression<Action<BitStream, T>> lambda = null;
+#if Unity && DEBUG
+                    var block = Expression.Block(call,
+                        Expression.Call(debugMethod,
+                            Expression.Convert(
+                                Expression.Call(concat, Expression.Constant("类型:" + t.FullName + ",名称:" + data.Name + ",当前占用字节:", typeof(string)),
+                                    Expression.Call(Expression.PropertyOrField(bitStream, "Offset"), int2StringMethod)), typeof(object)))
+                    );
+                    lambda = Expression.Lambda<Action<BitStream, T>>(block, bitStream, instance);
+#else
+                    lambda = Expression.Lambda<Action<BitStream, T>>(call, bitStream, instance);
+#endif
+
                     var action = lambda.Compile();
                     var sss = new Info();
                     sss.Action = action;
@@ -345,26 +399,50 @@ namespace DreamSerialize.WriterHelper
                 return default(T);
             var obj = Instance();
             int index = 0;
-            while (index < Length)
+            int compressTag;
+            while (true)
             {
-                var deserialize = DeserializeArray[index];
-                var tag = BinaryReader.ReadInt32(stream);
-                if (tag == 0)
+                compressTag = BinaryReader.ReadInt32(stream);
+                if (compressTag == 0)
+                {
+                    //stream.Offset++;
                     return obj;
-                else if (tag == -1)
+                }
+                if (DeserializeArray.Length == index)
+                {
+                    ReadTag(stream, compressTag);
+                    continue;
+                }
+                var deserialize = DeserializeArray[index];
+#if Unity && DEBUG
+                Debug.Log("读取Tag(压缩):" + compressTag + ",读取Tag(解压):" + (compressTag >> 3) + "当前占用字节:" + stream.Offset);
+#endif
+                if (stream.Offset == 334)
+                {
+                    Debug.Log("ddasdsadsa");
+                }
+                else if (compressTag == -1)
                 {
                     index++;
                     continue;
                 }
-                if (deserialize.Data.Index == (tag >> 3))
+                if (deserialize.Data.Index == compressTag >> 3)
                 {
-                    deserialize.Action(stream, obj);
-                    index++;
+                    try
+                    {
+                        deserialize.Action(stream, obj);
+                        index++;
+                    }
+                    catch (Exception e)
+                    {
+                        throw new Exception("Index:" + deserialize.Data.Index + ",Name:" + deserialize.Data.Name + ",Type:" + deserialize.Data.Type + ",CurType:" + obj.GetType() + "\n" + e);
+                    }
                 }
                 else
                 {
-                    ReadTag(stream, tag);
+                    ReadTag(stream, compressTag);
                 }
+
             }
             //End Group
             stream.Offset++;
@@ -389,7 +467,8 @@ namespace DreamSerialize.WriterHelper
                     stream.Offset += 8;
                     break;
                 case IType.Dynamic:
-                    stream.Offset += BinaryReader.ReadInt32(stream);
+                    int length = BinaryReader.ReadInt32(stream);
+                    stream.Offset += length;
                     break;
                 case IType.EndGroup:
                     while (true)

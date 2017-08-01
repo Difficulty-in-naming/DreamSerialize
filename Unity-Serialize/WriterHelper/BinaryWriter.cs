@@ -292,7 +292,7 @@ namespace DreamSerialize.WriterHelper
 
         #endregion
 
-        private static void Write(BitStream stream, byte[] value)
+        public static void Write(BitStream stream, byte[] value)
         {
             var length = value.Length;
             //Write(stream, length);
